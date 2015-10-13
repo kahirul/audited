@@ -131,7 +131,7 @@ module Audited
 
       # List of attributes that are audited.
       def audited_attributes
-        attributes.except(*non_audited_columns)
+        floatify attributes.except(*non_audited_columns).deep_symbolize_keys
       end
 
       protected
@@ -169,10 +169,20 @@ module Audited
       private
 
       def audited_changes
-        changed_attributes.except(*non_audited_columns).inject({}) do |changes,(attr, old_value)|
-          changes[attr] = [old_value, self[attr]]
+        _changed_attributes = changed_attributes.except(*non_audited_columns).inject({}) do |changes,(attr, old_value)|
+          new_value = self[attr]
+
+          old_value = floatify(old_value) if old_value.is_a? Hash
+          new_value = floatify(new_value) if new_value.is_a? Hash
+
+          changes[attr] = [old_value, new_value]
           changes
         end
+        _changed_attributes.deep_symbolize_keys.reject{ |attr, values| values.is_a?(Array) && values[0] == values[1] }
+      end
+
+      def floatify(hash)
+        hash.each { |name, value| hash[name] = value.to_f if value.is_a?(BigDecimal) }
       end
 
       def audits_to(version = nil)
